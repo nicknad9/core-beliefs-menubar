@@ -3,10 +3,15 @@ import CorePrinciplesLib
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static let llmBinaryPathKey = "llmBinaryPath"
+    static let llmModelKey = "llmModel"
+    static let defaultModel = "claude-sonnet-4-6"
 
     private var statusItem: NSStatusItem!
     private var dataService: DataService?
+    private var scheduler: DailyQuestionScheduler?
+    private var popoverController: MorningPopoverController?
     private var windowController: PrinciplesWindowController?
+    private var rightClickMenu: NSMenu!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let service: DataService
@@ -21,9 +26,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         self.dataService = service
 
+        let binaryPath: String
         do {
-            let path = try LLMPathResolver().resolve()
-            UserDefaults.standard.set(path, forKey: Self.llmBinaryPathKey)
+            binaryPath = try LLMPathResolver().resolve()
+            UserDefaults.standard.set(binaryPath, forKey: Self.llmBinaryPathKey)
         } catch {
             showFatalAlert(
                 title: "Install the llm CLI",
@@ -37,22 +43,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        let model = UserDefaults.standard.string(forKey: Self.llmModelKey) ?? Self.defaultModel
+        let generator = LLMQuestionGenerator(binaryPath: binaryPath, model: model)
+        let scheduler = DailyQuestionScheduler(dataService: service, generator: generator)
+        self.scheduler = scheduler
+
+        let popoverController = MorningPopoverController(dataService: service, scheduler: scheduler)
+        popoverController.onOpenPrinciples = { [weak self] in self?.openPrinciplesWindow(nil) }
+        self.popoverController = popoverController
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "CP"
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(statusItemClicked(_:))
+        statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
-        let menu = NSMenu()
+        rightClickMenu = NSMenu()
         let principlesItem = NSMenuItem(
             title: "Principles…",
             action: #selector(openPrinciplesWindow(_:)),
             keyEquivalent: "")
         principlesItem.target = self
-        menu.addItem(principlesItem)
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(
+        rightClickMenu.addItem(principlesItem)
+        rightClickMenu.addItem(NSMenuItem.separator())
+        rightClickMenu.addItem(NSMenuItem(
             title: "Quit",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"))
-        statusItem.menu = menu
+    }
+
+    @objc private func statusItemClicked(_ sender: Any?) {
+        guard let button = statusItem.button else { return }
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp {
+            statusItem.menu = rightClickMenu
+            button.performClick(nil)
+            statusItem.menu = nil
+        } else {
+            popoverController?.toggle(relativeTo: button)
+        }
     }
 
     @objc private func openPrinciplesWindow(_ sender: Any?) {
