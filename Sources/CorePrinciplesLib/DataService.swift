@@ -11,21 +11,22 @@ public class DataService {
     public func pickTodaysPrinciple() throws -> Principle? {
         try dbQueue.read { db in
             try Principle
-                .filter(Column("state") == "active")
+                .filter(Column("state") == PrincipleState.active)
                 .order(sql: "lastAskedAt IS NOT NULL, lastAskedAt ASC")
                 .fetchOne(db)
         }
     }
 
     public func todaysQuestion() throws -> Entry? {
-        let now = Date()
         let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: now)
-        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
+        let startOfToday = calendar.startOfDay(for: Date())
+        guard let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) else {
+            return nil
+        }
 
         return try dbQueue.read { db in
             try Entry
-                .filter(Column("kind") == "question")
+                .filter(Column("kind") == EntryKind.question)
                 .filter(Column("createdAt") >= startOfToday && Column("createdAt") < startOfTomorrow)
                 .fetchOne(db)
         }
@@ -33,7 +34,7 @@ public class DataService {
 
     public func insertQuestion(principleId: Int64, content: String) throws -> Entry {
         try dbQueue.write { db in
-            let entry = try Entry(principleId: principleId, kind: "question", content: content)
+            let entry = try Entry(principleId: principleId, kind: .question, content: content)
                 .inserted(db)
 
             try db.execute(
@@ -47,7 +48,7 @@ public class DataService {
 
     public func insertAnswer(principleId: Int64, content: String) throws -> Entry {
         try dbQueue.write { db in
-            try Entry(principleId: principleId, kind: "answer", content: content)
+            try Entry(principleId: principleId, kind: .answer, content: content)
                 .inserted(db)
         }
     }
@@ -55,7 +56,7 @@ public class DataService {
     public func listActivePrinciples() throws -> [Principle] {
         try dbQueue.read { db in
             try Principle
-                .filter(Column("state") == "active")
+                .filter(Column("state") == PrincipleState.active)
                 .order(Column("createdAt").asc)
                 .fetchAll(db)
         }
@@ -70,30 +71,29 @@ public class DataService {
     public func archivePrinciple(id: Int64) throws {
         try dbQueue.write { db in
             try db.execute(
-                sql: "UPDATE principles SET state = 'archived' WHERE id = ?",
-                arguments: [id]
+                sql: "UPDATE principles SET state = ? WHERE id = ?",
+                arguments: [PrincipleState.archived, id]
             )
         }
     }
 
     public func exportAll() throws -> Data {
         try dbQueue.read { db in
-            let principles = try Principle.fetchAll(db)
-            let entries = try Entry.fetchAll(db)
-            let export: [String: Any] = [
-                "exportedAt": ISO8601DateFormatter().string(from: Date()),
-                "principles": try principles.map { p in
-                    try JSONSerialization.jsonObject(
-                        with: JSONEncoder().encode(p)
-                    )
-                },
-                "entries": try entries.map { e in
-                    try JSONSerialization.jsonObject(
-                        with: JSONEncoder().encode(e)
-                    )
-                },
-            ]
-            return try JSONSerialization.data(withJSONObject: export, options: [.prettyPrinted, .sortedKeys])
+            let payload = ExportPayload(
+                exportedAt: Date(),
+                principles: try Principle.fetchAll(db),
+                entries: try Entry.fetchAll(db)
+            )
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            return try encoder.encode(payload)
         }
     }
+}
+
+struct ExportPayload: Codable {
+    let exportedAt: Date
+    let principles: [Principle]
+    let entries: [Entry]
 }

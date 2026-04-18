@@ -8,7 +8,7 @@ final class DataServiceTests: XCTestCase {
 
     override func setUpWithError() throws {
         dbQueue = try DatabaseQueue()
-        let _ = try AppDatabase(dbQueue: dbQueue)
+        _ = try AppDatabase(dbQueue: dbQueue)
         service = DataService(dbQueue: dbQueue)
     }
 
@@ -24,7 +24,7 @@ final class DataServiceTests: XCTestCase {
     }
 
     func testMigrationIsIdempotent() throws {
-        let _ = try AppDatabase(dbQueue: dbQueue)
+        _ = try AppDatabase(dbQueue: dbQueue)
         try dbQueue.read { db in
             XCTAssertTrue(try db.tableExists("principles"))
         }
@@ -36,7 +36,7 @@ final class DataServiceTests: XCTestCase {
         let p = try service.addPrinciple(text: "Be patient")
         XCTAssertNotNil(p.id)
         XCTAssertEqual(p.text, "Be patient")
-        XCTAssertEqual(p.state, "active")
+        XCTAssertEqual(p.state, .active)
         XCTAssertNil(p.lastAskedAt)
     }
 
@@ -44,7 +44,7 @@ final class DataServiceTests: XCTestCase {
 
     func testListActivePrinciplesReturnsOnlyActive() throws {
         let p1 = try service.addPrinciple(text: "Be kind")
-        let _ = try service.addPrinciple(text: "Be brave")
+        _ = try service.addPrinciple(text: "Be brave")
         try service.archivePrinciple(id: p1.id!)
 
         let active = try service.listActivePrinciples()
@@ -67,7 +67,7 @@ final class DataServiceTests: XCTestCase {
             try Principle.fetchAll(db)
         }
         XCTAssertEqual(all.count, 1)
-        XCTAssertEqual(all[0].state, "archived")
+        XCTAssertEqual(all[0].state, .archived)
     }
 
     // MARK: - pickTodaysPrinciple
@@ -76,10 +76,35 @@ final class DataServiceTests: XCTestCase {
         let p1 = try service.addPrinciple(text: "First")
         let p2 = try service.addPrinciple(text: "Second")
 
-        let _ = try service.insertQuestion(principleId: p1.id!, content: "Q1")
+        _ = try service.insertQuestion(principleId: p1.id!, content: "Q1")
 
         let picked = try service.pickTodaysPrinciple()
         XCTAssertEqual(picked?.id, p2.id, "Should pick the one never asked (NULL lastAskedAt)")
+    }
+
+    func testPickReturnsOldestOfMultipleNonNull() throws {
+        let p1 = try service.addPrinciple(text: "First")
+        let p2 = try service.addPrinciple(text: "Second")
+        let p3 = try service.addPrinciple(text: "Third")
+
+        let now = Date()
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE principles SET lastAskedAt = ? WHERE id = ?",
+                arguments: [now.addingTimeInterval(-300), p1.id!]
+            )
+            try db.execute(
+                sql: "UPDATE principles SET lastAskedAt = ? WHERE id = ?",
+                arguments: [now.addingTimeInterval(-600), p2.id!]
+            )
+            try db.execute(
+                sql: "UPDATE principles SET lastAskedAt = ? WHERE id = ?",
+                arguments: [now.addingTimeInterval(-100), p3.id!]
+            )
+        }
+
+        let picked = try service.pickTodaysPrinciple()
+        XCTAssertEqual(picked?.id, p2.id, "Should pick the principle with the oldest lastAskedAt")
     }
 
     func testPickReturnsSingleActivePrinciple() throws {
@@ -94,9 +119,9 @@ final class DataServiceTests: XCTestCase {
     }
 
     func testPickWithAllNullLastAskedAt() throws {
-        let _ = try service.addPrinciple(text: "A")
-        let _ = try service.addPrinciple(text: "B")
-        let _ = try service.addPrinciple(text: "C")
+        _ = try service.addPrinciple(text: "A")
+        _ = try service.addPrinciple(text: "B")
+        _ = try service.addPrinciple(text: "C")
 
         let picked = try service.pickTodaysPrinciple()
         XCTAssertNotNil(picked, "Should pick one even when all have NULL lastAskedAt")
@@ -134,7 +159,7 @@ final class DataServiceTests: XCTestCase {
         let p = try service.addPrinciple(text: "Test")
         XCTAssertNil(p.lastAskedAt)
 
-        let _ = try service.insertQuestion(principleId: p.id!, content: "Q?")
+        _ = try service.insertQuestion(principleId: p.id!, content: "Q?")
 
         let updated = try dbQueue.read { db in
             try Principle.fetchOne(db, key: p.id!)
@@ -145,7 +170,7 @@ final class DataServiceTests: XCTestCase {
     func testInsertQuestionCreatesEntryWithCorrectKind() throws {
         let p = try service.addPrinciple(text: "Test")
         let q = try service.insertQuestion(principleId: p.id!, content: "Q?")
-        XCTAssertEqual(q.kind, "question")
+        XCTAssertEqual(q.kind, .question)
         XCTAssertEqual(q.principleId, p.id!)
     }
 
@@ -154,13 +179,13 @@ final class DataServiceTests: XCTestCase {
     func testInsertAnswerCreatesEntryWithCorrectKind() throws {
         let p = try service.addPrinciple(text: "Test")
         let a = try service.insertAnswer(principleId: p.id!, content: "My answer")
-        XCTAssertEqual(a.kind, "answer")
+        XCTAssertEqual(a.kind, .answer)
         XCTAssertEqual(a.principleId, p.id!)
     }
 
     func testInsertAnswerDoesNotUpdateLastAskedAt() throws {
         let p = try service.addPrinciple(text: "Test")
-        let _ = try service.insertAnswer(principleId: p.id!, content: "Answer")
+        _ = try service.insertAnswer(principleId: p.id!, content: "Answer")
 
         let updated = try dbQueue.read { db in
             try Principle.fetchOne(db, key: p.id!)
@@ -172,8 +197,8 @@ final class DataServiceTests: XCTestCase {
 
     func testExportAllReturnsValidJSON() throws {
         let p = try service.addPrinciple(text: "Export test")
-        let _ = try service.insertQuestion(principleId: p.id!, content: "Q?")
-        let _ = try service.insertAnswer(principleId: p.id!, content: "A.")
+        _ = try service.insertQuestion(principleId: p.id!, content: "Q?")
+        _ = try service.insertAnswer(principleId: p.id!, content: "A.")
 
         let data = try service.exportAll()
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
@@ -193,5 +218,29 @@ final class DataServiceTests: XCTestCase {
         let entries = json["entries"] as! [Any]
         XCTAssertTrue(principles.isEmpty)
         XCTAssertTrue(entries.isEmpty)
+    }
+
+    func testExportAllRoundTripsViaCodable() throws {
+        let p = try service.addPrinciple(text: "Roundtrip")
+        _ = try service.insertQuestion(principleId: p.id!, content: "Q?")
+        _ = try service.insertAnswer(principleId: p.id!, content: "A.")
+
+        let data = try service.exportAll()
+
+        struct DecodedExport: Decodable {
+            let exportedAt: Date
+            let principles: [Principle]
+            let entries: [Entry]
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(DecodedExport.self, from: data)
+
+        XCTAssertEqual(decoded.principles.count, 1)
+        XCTAssertEqual(decoded.principles[0].text, "Roundtrip")
+        XCTAssertEqual(decoded.principles[0].state, .active)
+        XCTAssertEqual(decoded.entries.count, 2)
+        XCTAssertEqual(decoded.entries.map { $0.kind }.sorted { $0.rawValue < $1.rawValue }, [.answer, .question])
     }
 }

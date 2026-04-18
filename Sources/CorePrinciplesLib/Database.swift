@@ -1,11 +1,17 @@
 import Foundation
 import GRDB
 
+public enum AppDatabaseError: Error {
+    case applicationSupportUnavailable
+}
+
 public struct AppDatabase {
     public let dbQueue: DatabaseQueue
 
     public init() throws {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            throw AppDatabaseError.applicationSupportUnavailable
+        }
         let dbDir = appSupport.appendingPathComponent("com.coreprinciples.app")
         try FileManager.default.createDirectory(at: dbDir, withIntermediateDirectories: true)
         let dbPath = dbDir.appendingPathComponent("principles.db").path
