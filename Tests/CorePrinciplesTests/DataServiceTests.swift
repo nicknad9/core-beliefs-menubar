@@ -40,34 +40,86 @@ final class DataServiceTests: XCTestCase {
         XCTAssertNil(p.lastAskedAt)
     }
 
-    // MARK: - listActivePrinciples
+    // MARK: - listPrinciples
 
-    func testListActivePrinciplesReturnsOnlyActive() throws {
+    func testListPrinciplesActiveReturnsOnlyActive() throws {
         let p1 = try service.addPrinciple(text: "Be kind")
         _ = try service.addPrinciple(text: "Be brave")
-        try service.archivePrinciple(id: p1.id!)
+        try service.setState(id: p1.id!, state: .archived)
 
-        let active = try service.listActivePrinciples()
+        let active = try service.listPrinciples(state: .active)
         XCTAssertEqual(active.count, 1)
         XCTAssertEqual(active[0].text, "Be brave")
     }
 
-    func testListActivePrinciplesEmptyDb() throws {
-        let active = try service.listActivePrinciples()
+    func testListPrinciplesActiveEmptyDb() throws {
+        let active = try service.listPrinciples(state: .active)
         XCTAssertTrue(active.isEmpty)
     }
 
-    // MARK: - archivePrinciple
+    func testListPrinciplesFilterCoverage() throws {
+        let p1 = try service.addPrinciple(text: "one")
+        let p2 = try service.addPrinciple(text: "two")
+        let p3 = try service.addPrinciple(text: "three")
+        try service.setState(id: p2.id!, state: .archived)
 
-    func testArchiveSetsStateArchived() throws {
+        let active = try service.listPrinciples(state: .active)
+        XCTAssertEqual(active.map { $0.id }, [p1.id, p3.id])
+
+        let archived = try service.listPrinciples(state: .archived)
+        XCTAssertEqual(archived.map { $0.id }, [p2.id])
+
+        let all = try service.listPrinciples(state: nil)
+        XCTAssertEqual(all.map { $0.id }, [p1.id, p2.id, p3.id],
+                       "listPrinciples(nil) should return all rows ordered by createdAt.asc")
+    }
+
+    // MARK: - setState
+
+    func testSetStateSetsArchived() throws {
         let p = try service.addPrinciple(text: "Be bold")
-        try service.archivePrinciple(id: p.id!)
+        try service.setState(id: p.id!, state: .archived)
 
         let all = try dbQueue.read { db in
             try Principle.fetchAll(db)
         }
         XCTAssertEqual(all.count, 1)
         XCTAssertEqual(all[0].state, .archived)
+    }
+
+    func testSetStateRoundTrip() throws {
+        let p = try service.addPrinciple(text: "Round trip")
+        XCTAssertEqual(p.state, .active)
+
+        try service.setState(id: p.id!, state: .archived)
+        var fetched = try dbQueue.read { db in try Principle.fetchOne(db, key: p.id!) }
+        XCTAssertEqual(fetched?.state, .archived)
+
+        try service.setState(id: p.id!, state: .active)
+        fetched = try dbQueue.read { db in try Principle.fetchOne(db, key: p.id!) }
+        XCTAssertEqual(fetched?.state, .active)
+    }
+
+    // MARK: - updatePrinciple
+
+    func testUpdatePrincipleChangesText() throws {
+        let p = try service.addPrinciple(text: "Original")
+        try service.updatePrinciple(id: p.id!, text: "Revised")
+
+        let fetched = try dbQueue.read { db in try Principle.fetchOne(db, key: p.id!) }
+        XCTAssertEqual(fetched?.text, "Revised")
+    }
+
+    func testUpdatePrincipleDoesNotTouchLastAskedAt() throws {
+        let p = try service.addPrinciple(text: "Test")
+        _ = try service.insertQuestion(principleId: p.id!, content: "Q?")
+        let before = try dbQueue.read { db in try Principle.fetchOne(db, key: p.id!) }?.lastAskedAt
+        XCTAssertNotNil(before)
+
+        try service.updatePrinciple(id: p.id!, text: "Edited")
+
+        let after = try dbQueue.read { db in try Principle.fetchOne(db, key: p.id!) }?.lastAskedAt
+        XCTAssertEqual(after, before, "Editing text must not reset the scheduler pointer")
     }
 
     // MARK: - pickTodaysPrinciple
@@ -130,7 +182,7 @@ final class DataServiceTests: XCTestCase {
     func testPickSkipsArchivedPrinciples() throws {
         let p1 = try service.addPrinciple(text: "Archived")
         let p2 = try service.addPrinciple(text: "Active")
-        try service.archivePrinciple(id: p1.id!)
+        try service.setState(id: p1.id!, state: .archived)
 
         let picked = try service.pickTodaysPrinciple()
         XCTAssertEqual(picked?.id, p2.id)
