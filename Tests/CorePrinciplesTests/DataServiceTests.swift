@@ -272,6 +272,117 @@ final class DataServiceTests: XCTestCase {
         XCTAssertTrue(entries.isEmpty)
     }
 
+    // MARK: - findPrinciple
+
+    func testFindPrincipleReturnsPrinciple() throws {
+        let p = try service.addPrinciple(text: "Find me")
+        let found = try service.findPrinciple(id: p.id!)
+        XCTAssertNotNil(found)
+        XCTAssertEqual(found?.id, p.id)
+        XCTAssertEqual(found?.text, "Find me")
+    }
+
+    func testFindPrincipleReturnsNilWhenMissing() throws {
+        let found = try service.findPrinciple(id: 9999)
+        XCTAssertNil(found)
+    }
+
+    // MARK: - recentEntries
+
+    func testRecentEntriesFiltersByPrincipleAndSinceOrderedAscending() throws {
+        let p1 = try service.addPrinciple(text: "One")
+        let p2 = try service.addPrinciple(text: "Two")
+
+        let now = Date()
+        let veryOld = now.addingTimeInterval(-60 * 60 * 24 * 45) // 45 days ago
+        let cutoff = now.addingTimeInterval(-60 * 60 * 24 * 30) // 30 days ago
+
+        try dbQueue.write { db in
+            try Entry(principleId: p1.id!, kind: .question, content: "old p1 Q", createdAt: veryOld)
+                .insert(db)
+            try Entry(principleId: p1.id!, kind: .question, content: "fresh p1 Q",
+                      createdAt: now.addingTimeInterval(-60 * 60 * 24 * 3))
+                .insert(db)
+            try Entry(principleId: p1.id!, kind: .answer, content: "fresh p1 A",
+                      createdAt: now.addingTimeInterval(-60 * 60 * 24 * 2))
+                .insert(db)
+            try Entry(principleId: p2.id!, kind: .question, content: "p2 Q",
+                      createdAt: now.addingTimeInterval(-60 * 60 * 24 * 1))
+                .insert(db)
+        }
+
+        let entries = try service.recentEntries(principleId: p1.id!, since: cutoff)
+        XCTAssertEqual(entries.map(\.content), ["fresh p1 Q", "fresh p1 A"])
+    }
+
+    func testRecentEntriesEmptyWhenPrincipleHasNoEntries() throws {
+        let p = try service.addPrinciple(text: "Solo")
+        let entries = try service.recentEntries(principleId: p.id!, since: Date.distantPast)
+        XCTAssertTrue(entries.isEmpty)
+    }
+
+    // MARK: - lastQuestionBodies
+
+    func testLastQuestionBodiesReturnsNewestNOnlyQuestions() throws {
+        let p = try service.addPrinciple(text: "Test")
+        // three questions across time, plus an answer in between
+        let now = Date()
+        try dbQueue.write { db in
+            try Entry(principleId: p.id!, kind: .question, content: "q-oldest",
+                      createdAt: now.addingTimeInterval(-300))
+                .insert(db)
+            try Entry(principleId: p.id!, kind: .answer, content: "a-should-be-ignored",
+                      createdAt: now.addingTimeInterval(-250))
+                .insert(db)
+            try Entry(principleId: p.id!, kind: .question, content: "q-middle",
+                      createdAt: now.addingTimeInterval(-200))
+                .insert(db)
+            try Entry(principleId: p.id!, kind: .question, content: "q-newest",
+                      createdAt: now.addingTimeInterval(-100))
+                .insert(db)
+        }
+
+        let bodies = try service.lastQuestionBodies(principleId: p.id!, limit: 2)
+        XCTAssertEqual(bodies, ["q-newest", "q-middle"])
+    }
+
+    func testLastQuestionBodiesEmptyWhenNoQuestions() throws {
+        let p = try service.addPrinciple(text: "None")
+        let bodies = try service.lastQuestionBodies(principleId: p.id!, limit: 2)
+        XCTAssertTrue(bodies.isEmpty)
+    }
+
+    // MARK: - hasAnsweredToday
+
+    func testHasAnsweredTodayTrueWhenAnswerExists() throws {
+        let p = try service.addPrinciple(text: "Test")
+        _ = try service.insertAnswer(principleId: p.id!, content: "today's answer")
+        XCTAssertTrue(try service.hasAnsweredToday())
+    }
+
+    func testHasAnsweredTodayFalseWhenNoAnswer() throws {
+        _ = try service.addPrinciple(text: "Test")
+        XCTAssertFalse(try service.hasAnsweredToday())
+    }
+
+    func testHasAnsweredTodayFalseWhenOnlyYesterdaysAnswer() throws {
+        let p = try service.addPrinciple(text: "Test")
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        try dbQueue.write { db in
+            try Entry(principleId: p.id!, kind: .answer, content: "yesterday",
+                      createdAt: yesterday)
+                .insert(db)
+        }
+        XCTAssertFalse(try service.hasAnsweredToday())
+    }
+
+    func testHasAnsweredTodayFalseWhenOnlyQuestionToday() throws {
+        let p = try service.addPrinciple(text: "Test")
+        _ = try service.insertQuestion(principleId: p.id!, content: "Q?")
+        XCTAssertFalse(try service.hasAnsweredToday(),
+                       "question-only today must not count as answered")
+    }
+
     func testExportAllRoundTripsViaCodable() throws {
         let p = try service.addPrinciple(text: "Roundtrip")
         _ = try service.insertQuestion(principleId: p.id!, content: "Q?")

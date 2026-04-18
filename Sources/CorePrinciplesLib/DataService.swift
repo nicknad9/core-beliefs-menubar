@@ -100,6 +100,48 @@ public class DataService {
             return try encoder.encode(payload)
         }
     }
+
+    public func findPrinciple(id: Int64) throws -> Principle? {
+        try dbQueue.read { db in
+            try Principle.fetchOne(db, key: id)
+        }
+    }
+
+    public func recentEntries(principleId: Int64, since: Date) throws -> [Entry] {
+        try dbQueue.read { db in
+            try Entry
+                .filter(Column("principleId") == principleId)
+                .filter(Column("createdAt") >= since)
+                .order(Column("createdAt").asc)
+                .fetchAll(db)
+        }
+    }
+
+    public func lastQuestionBodies(principleId: Int64, limit: Int) throws -> [String] {
+        try dbQueue.read { db in
+            try Entry
+                .filter(Column("principleId") == principleId)
+                .filter(Column("kind") == EntryKind.question)
+                .order(Column("createdAt").desc)
+                .limit(limit)
+                .fetchAll(db)
+                .map(\.content)
+        }
+    }
+
+    public func hasAnsweredToday() throws -> Bool {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        guard let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) else {
+            return false
+        }
+        return try dbQueue.read { db in
+            try Entry
+                .filter(Column("kind") == EntryKind.answer)
+                .filter(Column("createdAt") >= startOfToday && Column("createdAt") < startOfTomorrow)
+                .fetchCount(db) > 0
+        }
+    }
 }
 
 struct ExportPayload: Codable {
