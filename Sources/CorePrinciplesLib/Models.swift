@@ -1,0 +1,44 @@
+import Foundation
+import GRDB
+
+public struct Principle: Codable, FetchableRecord, PersistableRecord, Identifiable {
+    public static let databaseTableName = "principles"
+
+    public var id: Int64?
+    public var text: String
+    public var state: String
+    public var createdAt: Date
+    public var lastAskedAt: Date?
+
+    public init(text: String, state: String = "active", createdAt: Date = Date(), lastAskedAt: Date? = nil) {
+        self.text = text
+        self.state = state
+        self.createdAt = createdAt
+        self.lastAskedAt = lastAskedAt
+    }
+
+    public mutating func didInsert(_ inserted: InsertionSuccess) {
+        id = inserted.rowID
+    }
+}
+
+public struct Entry: Codable, FetchableRecord, PersistableRecord, Identifiable {
+    public static let databaseTableName = "entries"
+
+    public var id: Int64?
+    public var principleId: Int64
+    public var kind: String
+    public var content: String
+    public var createdAt: Date
+
+    public init(principleId: Int64, kind: String, content: String, createdAt: Date = Date()) {
+        self.principleId = principleId
+        self.kind = kind
+        self.content = content
+        self.createdAt = createdAt
+    }
+
+    public mutating func didInsert(_ inserted: InsertionSuccess) {
+        id = inserted.rowID
+    }
+}
