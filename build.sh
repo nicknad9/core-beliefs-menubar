@@ -9,7 +9,8 @@ APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 
-swiftc -o "$APP_BUNDLE/Contents/MacOS/$APP_NAME" main.swift
+swift build -c release
+cp .build/release/CorePrinciples "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 cp Info.plist "$APP_BUNDLE/Contents/"
 
 echo "Built $APP_BUNDLE"
