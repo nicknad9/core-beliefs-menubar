@@ -53,12 +53,13 @@ public class DataService {
         }
     }
 
-    public func listActivePrinciples() throws -> [Principle] {
+    public func listPrinciples(state: PrincipleState?) throws -> [Principle] {
         try dbQueue.read { db in
-            try Principle
-                .filter(Column("state") == PrincipleState.active)
-                .order(Column("createdAt").asc)
-                .fetchAll(db)
+            let request = Principle.order(Column("createdAt").asc)
+            if let state = state {
+                return try request.filter(Column("state") == state).fetchAll(db)
+            }
+            return try request.fetchAll(db)
         }
     }
 
@@ -68,11 +69,20 @@ public class DataService {
         }
     }
 
-    public func archivePrinciple(id: Int64) throws {
+    public func updatePrinciple(id: Int64, text: String) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE principles SET text = ? WHERE id = ?",
+                arguments: [text, id]
+            )
+        }
+    }
+
+    public func setState(id: Int64, state: PrincipleState) throws {
         try dbQueue.write { db in
             try db.execute(
                 sql: "UPDATE principles SET state = ? WHERE id = ?",
-                arguments: [PrincipleState.archived, id]
+                arguments: [state, id]
             )
         }
     }
