@@ -4,7 +4,7 @@ import CorePrinciplesLib
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static let llmBinaryPathKey = "llmBinaryPath"
     static let llmModelKey = "llmModel"
-    static let defaultModel = "claude-sonnet-4-6"
+    static let defaultModel = "gpt-5"
 
     private var statusItem: NSStatusItem!
     private var dataService: DataService?
@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Core Principles needs the `llm` CLI to generate daily questions.
 
                 1. Install:  brew install llm
-                2. Set key:  llm keys set anthropic
+                2. Set key:  llm keys set openai
                 3. Quit and reopen Core Principles.
                 """)
             return

@@ -9,7 +9,7 @@ public struct LLMQuestionGenerator: QuestionGenerator {
 
     public init(
         binaryPath: String,
-        model: String = "claude-sonnet-4-6",
+        model: String = "gpt-5",
         runner: @escaping Runner = LLMQuestionGenerator.defaultRunner
     ) {
         self.binaryPath = binaryPath
