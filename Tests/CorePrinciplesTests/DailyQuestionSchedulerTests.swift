@@ -62,26 +62,27 @@ final class DailyQuestionSchedulerTests: XCTestCase {
 
         let outcome = runSync(makeScheduler(generator: gen))
 
-        if case let .ready(principle, question, alreadyAnswered) = outcome {
+        if case let .ready(principle, question, answer) = outcome {
             XCTAssertEqual(principle.id, p.id)
             XCTAssertEqual(question.id, q.id)
-            XCTAssertFalse(alreadyAnswered)
+            XCTAssertNil(answer)
         } else {
             XCTFail("expected .ready, got \(outcome)")
         }
         XCTAssertEqual(gen.callCount.value, 0, "must NOT call generator when today already has a question")
     }
 
-    func test_returnsReady_withAlreadyAnsweredTrue_whenTodayHasAnswer() throws {
+    func test_returnsReady_withAnswer_whenTodayHasAnswer() throws {
         let p = try service.addPrinciple(text: "Seeded")
         _ = try service.insertQuestion(principleId: p.id!, content: "seeded Q")
-        _ = try service.insertAnswer(principleId: p.id!, content: "my answer")
+        let inserted = try service.insertAnswer(principleId: p.id!, content: "my answer")
         let gen = FakeGenerator(result: .success("unused"))
 
         let outcome = runSync(makeScheduler(generator: gen))
 
-        if case let .ready(_, _, alreadyAnswered) = outcome {
-            XCTAssertTrue(alreadyAnswered)
+        if case let .ready(_, _, answer) = outcome {
+            XCTAssertEqual(answer?.id, inserted.id)
+            XCTAssertEqual(answer?.content, "my answer")
         } else {
             XCTFail("expected .ready, got \(outcome)")
         }
@@ -110,10 +111,10 @@ final class DailyQuestionSchedulerTests: XCTestCase {
         let gen = FakeGenerator(result: .success("generated for older"))
         let outcome = runSync(makeScheduler(generator: gen))
 
-        if case let .ready(picked, question, alreadyAnswered) = outcome {
+        if case let .ready(picked, question, answer) = outcome {
             XCTAssertEqual(picked.id, older.id, "must pick the principle with the oldest lastAskedAt among active")
             XCTAssertEqual(question.content, "generated for older")
-            XCTAssertFalse(alreadyAnswered)
+            XCTAssertNil(answer)
         } else {
             XCTFail("expected .ready, got \(outcome)")
         }

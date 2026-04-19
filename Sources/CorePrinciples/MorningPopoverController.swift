@@ -47,9 +47,9 @@ final class MorningPopoverController: NSObject, NSPopoverDelegate {
         scheduler.today { [weak self] outcome in
             guard let self = self else { return }
             switch outcome {
-            case .ready(let principle, let question, let alreadyAnswered):
-                if alreadyAnswered {
-                    self.viewController.showAnswered(principle: principle, question: question)
+            case .ready(let principle, let question, let answer):
+                if let answer = answer {
+                    self.viewController.showAnswered(principle: principle, question: question, answer: answer)
                 } else {
                     self.viewController.showActive(principle: principle, question: question)
                 }
@@ -102,6 +102,7 @@ private final class MorningViewController: NSViewController {
 
     private var answeredPrincipleLabel: NSTextField!
     private var answeredQuestionLabel: NSTextField!
+    private var answeredAnswerLabel: NSTextField!
 
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 320))
@@ -142,10 +143,11 @@ private final class MorningViewController: NSViewController {
         view.window?.makeFirstResponder(answerTextView)
     }
 
-    func showAnswered(principle: Principle, question: Entry) {
+    func showAnswered(principle: Principle, question: Entry, answer: Entry) {
         currentPrincipleId = principle.id
         answeredPrincipleLabel.stringValue = principle.text
         answeredQuestionLabel.stringValue = question.content
+        answeredAnswerLabel.stringValue = answer.content
         swapTo(answeredView)
     }
 
@@ -293,17 +295,23 @@ private final class MorningViewController: NSViewController {
         answeredQuestionLabel.translatesAutoresizingMaskIntoConstraints = false
         answeredQuestionLabel.maximumNumberOfLines = 0
 
-        let done = NSTextField(wrappingLabelWithString: "You've answered today. See you tomorrow.")
-        done.font = NSFont.systemFont(ofSize: 13, weight: .regular)
-        done.textColor = .secondaryLabelColor
-        done.translatesAutoresizingMaskIntoConstraints = false
-        done.maximumNumberOfLines = 0
+        let answerHeader = NSTextField(labelWithString: "Your answer")
+        answerHeader.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        answerHeader.textColor = .secondaryLabelColor
+        answerHeader.translatesAutoresizingMaskIntoConstraints = false
+
+        answeredAnswerLabel = NSTextField(wrappingLabelWithString: "")
+        answeredAnswerLabel.font = NSFont.systemFont(ofSize: 13, weight: .regular)
+        answeredAnswerLabel.translatesAutoresizingMaskIntoConstraints = false
+        answeredAnswerLabel.maximumNumberOfLines = 0
+        answeredAnswerLabel.isSelectable = true
 
         v.addSubview(header)
         v.addSubview(answeredPrincipleLabel)
         v.addSubview(questionHeader)
         v.addSubview(answeredQuestionLabel)
-        v.addSubview(done)
+        v.addSubview(answerHeader)
+        v.addSubview(answeredAnswerLabel)
 
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: v.topAnchor),
@@ -322,9 +330,13 @@ private final class MorningViewController: NSViewController {
             answeredQuestionLabel.leadingAnchor.constraint(equalTo: v.leadingAnchor),
             answeredQuestionLabel.trailingAnchor.constraint(equalTo: v.trailingAnchor),
 
-            done.topAnchor.constraint(equalTo: answeredQuestionLabel.bottomAnchor, constant: 20),
-            done.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            done.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            answerHeader.topAnchor.constraint(equalTo: answeredQuestionLabel.bottomAnchor, constant: 16),
+            answerHeader.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            answerHeader.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+
+            answeredAnswerLabel.topAnchor.constraint(equalTo: answerHeader.bottomAnchor, constant: 4),
+            answeredAnswerLabel.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            answeredAnswerLabel.trailingAnchor.constraint(equalTo: v.trailingAnchor),
         ])
 
         return v

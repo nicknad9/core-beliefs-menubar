@@ -142,6 +142,21 @@ public class DataService {
                 .fetchCount(db) > 0
         }
     }
+
+    public func todaysAnswer() throws -> Entry? {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        guard let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) else {
+            return nil
+        }
+        return try dbQueue.read { db in
+            try Entry
+                .filter(Column("kind") == EntryKind.answer)
+                .filter(Column("createdAt") >= startOfToday && Column("createdAt") < startOfTomorrow)
+                .order(Column("createdAt").desc)
+                .fetchOne(db)
+        }
+    }
 }
 
 struct ExportPayload: Codable {

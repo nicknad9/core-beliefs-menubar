@@ -1,7 +1,7 @@
 import Foundation
 
 public enum SchedulerOutcome {
-    case ready(Principle, Entry, alreadyAnswered: Bool)
+    case ready(Principle, Entry, answer: Entry?)
     case empty
     case failed(Error)
 }
@@ -39,8 +39,8 @@ public final class DailyQuestionScheduler {
                 guard let principle = try dataService.findPrinciple(id: existing.principleId) else {
                     return .failed(SchedulerError.principleMissing(id: existing.principleId))
                 }
-                let answered = try dataService.hasAnsweredToday()
-                return .ready(principle, existing, alreadyAnswered: answered)
+                let answer = try dataService.todaysAnswer()
+                return .ready(principle, existing, answer: answer)
             }
 
             guard let principle = try dataService.pickTodaysPrinciple(), let principleId = principle.id else {
@@ -68,7 +68,7 @@ public final class DailyQuestionScheduler {
 
             let question = try dataService.insertQuestion(principleId: principleId, content: text)
             let updatedPrinciple = (try? dataService.findPrinciple(id: principleId)) ?? principle
-            return .ready(updatedPrinciple, question, alreadyAnswered: false)
+            return .ready(updatedPrinciple, question, answer: nil)
         } catch {
             return .failed(error)
         }
