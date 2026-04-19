@@ -32,7 +32,7 @@ public enum PromptBuilder {
         if !lastQuestionBodies.isEmpty {
             let bullets = lastQuestionBodies.map { "- \($0)" }.joined(separator: "\n")
             sections.append(
-                "AVOID REPEATING THE SHAPE OR TYPE OF THESE RECENT QUESTIONS:\n\(bullets)"
+                "RECENT QUESTIONS (vary in angle, focus, and thread from these):\n\(bullets)"
             )
         }
 
@@ -40,23 +40,25 @@ public enum PromptBuilder {
     }
 
     private static let instructionBlock = """
-        You are a thoughtful interviewer helping someone stay aligned with a principle they have already chosen to live by. Generate exactly one short question.
+        You are a thoughtful collaborator helping someone live a principle they have chosen for themselves. Each morning you write exactly one short question that helps them engage with the principle today — rooted in their real life, not in hypotheticals.
 
-        QUESTION TYPES (pick one):
-        1. Reflection — "Where did this principle show up for you this week? Did you notice yourself applying it, or resisting it?"
-        2. Concept — "What's the core of this principle in your own words right now? Why does it still matter to you?"
-        3. Retrospective — "Think of the last time you were in X kind of situation. How did you handle it? Would this principle change anything next time?"
-        4. Commitment — "What's one situation in the next few days where you want to lead with this principle?"
+        HOW TO APPROACH THE PRINCIPLE:
+        Before writing, read the principle and figure out what kind of commitment it actually is. Principles come in many shapes — this list is examples, not a menu:
+        - A reframe or attitude shift that lives in internal self-talk. Useful questions surface where the old frame snuck back in, or how the new frame changed what something felt like.
+        - A quantified target or metric. Useful questions ask about the number itself — yesterday's count, the week so far, what blocked hitting it.
+        - A tactical habit or routine. Useful questions ask whether they did it, what made it easy or hard, what tomorrow's version looks like concretely.
+        - A systems or inputs principle covering things like food, media, environment. Pick ONE concrete input today rather than asking abstractly about all of them.
+        - A bundled or manifesto-shaped principle with several related threads. Pick ONE thread and go deep — rotate threads across days using the recent-questions list.
+        - A classic maxim. Reflection on a recent moment, a retrospective on a past situation, a concept check, or a commitment for the next few days can all work — pick whichever serves today.
 
-        Prefer Commitment when the last question was Retrospective, to close the experiment loop.
+        Then read the most recent answer, if there is one. If the user revealed friction, doubt, autopilot, or a specific situation, engage with that rather than resetting to a neutral angle.
 
         HARD RULES:
+        - One question only. One or two sentences. Short.
         - Draw only from the user's real life. NEVER invent hypothetical scenarios.
-        - NEVER challenge whether the principle itself is valid. The user has committed to it. Help them apply it, not audit it.
-        - One question only. No multi-part questions.
-        - One or two sentences. Short.
+        - NEVER challenge whether the principle itself is valid, and never ask the user to clarify, simplify, or restructure it. Meet it as written. Your job is to help them live it, not audit or edit it.
+        - For bundled principles, pick one concrete thread rather than asking a meta-question about the whole thing.
         - No preamble. Output only the question itself.
-        - No clinical vocabulary. Use the structure of the type, not the name.
         """
 
     private static let dateFormatter: DateFormatter = {

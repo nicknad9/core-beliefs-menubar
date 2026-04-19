@@ -24,11 +24,17 @@ final class PromptBuilderTests: XCTestCase {
         )
 
         XCTAssertTrue(prompt.contains("Move slowly and finish."), "principle text must appear")
-        XCTAssertTrue(prompt.contains("Reflection"), "type catalog must appear")
-        XCTAssertTrue(prompt.contains("Commitment"), "type catalog must appear")
+        XCTAssertTrue(prompt.contains("many shapes"),
+                      "shape-adaptive framing must appear (no rigid type menu)")
+        XCTAssertTrue(prompt.contains("bundled"),
+                      "bundled-principle guidance must appear")
+        XCTAssertTrue(prompt.contains("most recent answer"),
+                      "last-answer engagement guidance must appear")
         XCTAssertTrue(prompt.contains("NEVER invent hypothetical"), "anti-hypothetical rule must appear")
         XCTAssertTrue(prompt.contains("NEVER challenge whether the principle itself is valid"),
                       "no-validity-challenge rule must appear")
+        XCTAssertTrue(prompt.contains("clarify, simplify, or restructure"),
+                      "no-tone-checking rule must appear")
         XCTAssertTrue(prompt.contains("One question only"), "single-question rule must appear")
         XCTAssertTrue(prompt.contains("No preamble"), "no-preamble rule must appear")
     }
@@ -80,8 +86,8 @@ final class PromptBuilderTests: XCTestCase {
             date: Date()
         )
 
-        XCTAssertTrue(prompt.contains("AVOID REPEATING THE SHAPE OR TYPE OF THESE RECENT QUESTIONS:"),
-                      "anti-repeat header must appear")
+        XCTAssertTrue(prompt.contains("RECENT QUESTIONS (vary in angle, focus, and thread from these):"),
+                      "recent-questions header must appear")
         for body in lastTwo {
             XCTAssertTrue(prompt.contains(body), "last-two question body '\(body)' must appear")
         }
@@ -95,7 +101,7 @@ final class PromptBuilderTests: XCTestCase {
             date: Date()
         )
 
-        XCTAssertFalse(prompt.contains("AVOID REPEATING"),
-                       "anti-repeat block must NOT appear when lastQuestionBodies is empty")
+        XCTAssertFalse(prompt.contains("RECENT QUESTIONS ("),
+                       "recent-questions block must NOT appear when lastQuestionBodies is empty")
     }
 }
